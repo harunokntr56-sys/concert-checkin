@@ -112,7 +112,7 @@ function submitOrderId(raw){
  requestScript.onerror=()=>{
   if(requestTimer){clearTimeout(requestTimer);requestTimer=null}
   resultBox.hidden=false;resultBox.className='result error';
-  resultBox.textContent='Apps Scriptへの通信に失敗しました。\\n受付番号・通信環境・デプロイ設定を確認してください。';
+  resultBox.textContent='Apps Scriptへの通信に失敗しました。\n受付番号・通信環境・デプロイ設定を確認してください。';
   setStatus('Apps Scriptから応答を受け取れませんでした。');clearPendingRequest();busy=false;
  };
  requestTimer=setTimeout(()=>{
