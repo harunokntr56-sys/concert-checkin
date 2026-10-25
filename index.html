@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>コンサート入場受付 QRスキャナー</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:640px;margin:0 auto;padding:18px;background:#f4f4f4;color:#222}
+.card{background:white;border-radius:18px;padding:18px;margin:12px 0;box-shadow:0 3px 16px #0001}
+h1{font-size:1.35rem;margin:0 0 8px} p{line-height:1.55}
+video{width:100%;background:#111;border-radius:12px;min-height:220px;object-fit:cover}
+button{width:100%;padding:16px;border:0;border-radius:12px;font-size:1.05rem;font-weight:700;margin-top:10px;background:#222;color:white}
+button.secondary{background:#e5e5e5;color:#222}
+#status{white-space:pre-wrap;line-height:1.5;margin-top:12px}
+input{box-sizing:border-box;width:100%;font-size:1.1rem;padding:13px;border:1px solid #aaa;border-radius:10px;margin-top:8px}
+.small{font-size:.9rem;color:#555}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>春野祐一郎ヴァイオリンリサイタル</h1>
+<p>QRチケット 入場受付</p>
+<video id="video" playsinline muted></video>
+<button id="start">カメラを起動</button>
+<button id="stop" class="secondary">カメラを停止</button>
+<div id="status">カメラを起動してチケットのQRコードを映してください。</div>
+</div>
+<div class="card">
+<h2>受付番号を手入力</h2>
+<form id="manualForm">
+<input id="manual" autocomplete="off" placeholder="受付番号を入力">
+<button type="submit">入場確認へ進む</button>
+</form>
+<p class="small">読み取り後、受付確認画面に進みます。</p>
+</div>
+<!-- QR decoding library is loaded over HTTPS -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyAv9bzjHhYkjnwt4mvi9qG5Jqo4G1Oa7yt6bIHuge9uEE2tH8W2HX1Dlql4M6WcWE/exec";
+const video = document.getElementById("video");
+const statusBox = document.getElementById("status");
+let stream = null, timer = null, busy = false;
+function setStatus(s){statusBox.textContent=s;}
+function stopCamera(){
+  if(timer){clearInterval(timer);timer=null;}
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  video.srcObject=null;
+}
+async function startCamera(){
+  stopCamera();
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    setStatus("このブラウザではカメラを利用できません。Safariでページを開き直してください。");
+    return;
+  }
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+    video.srcObject=stream;
+    await video.play();
+    setStatus("カメラ起動中です。QRコードを枠内に映してください。");
+    const canvas=document.createElement("canvas"), ctx=canvas.getContext("2d",{willReadFrequently:true});
+    timer=setInterval(()=>{
+      if(busy || video.readyState<2 || !window.jsQR) return;
+      canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+      if(!canvas.width || !canvas.height) return;
+      ctx.drawImage(video,0,0,canvas.width,canvas.height);
+      const frame=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const code=jsQR(frame.data,frame.width,frame.height,{inversionAttempts:"attemptBoth"});
+      if(code && code.data){busy=true;stopCamera();submitOrderId(code.data);}
+    },250);
+  }catch(e){
+    const names={
+      NotAllowedError:"カメラの利用が拒否されました。Safariのサイト設定を確認してください。",
+      NotFoundError:"カメラが見つかりません。",
+      NotReadableError:"カメラが他のアプリで使用中の可能性があります。",
+      SecurityError:"ブラウザのセキュリティ設定によりカメラを利用できません。"
+    };
+    setStatus((names[e.name]||"カメラを起動できませんでした。")+"\n詳細: "+e.name+" / "+e.message);
+  }
+}
+function submitOrderId(raw){
+  const id=String(raw||"").trim();
+  if(!id){busy=false;setStatus("QRコードから受付番号を読み取れませんでした。");return;}
+  // Submit via normal form navigation, avoiding cross-origin fetch/CORS restrictions.
+  const form=document.createElement("form");
+  form.method="POST"; form.action=GAS_URL; form.target="_self";
+  const input=document.createElement("input");
+  input.type="hidden"; input.name="orderId"; input.value=id;
+  form.appendChild(input); document.body.appendChild(form);
+  setStatus("受付番号を読み取りました。入場確認を実行します…");
+  form.submit();
+}
+document.getElementById("start").addEventListener("click",startCamera);
+document.getElementById("stop").addEventListener("click",()=>{stopCamera();setStatus("カメラを停止しました。");});
+document.getElementById("manualForm").addEventListener("submit",e=>{
+  e.preventDefault(); const v=document.getElementById("manual").value.trim();
+  if(!v){setStatus("受付番号を入力してください。");return;}
+  submitOrderId(v);
+});
+</script>
+</body>
+</html>
