@@ -102,7 +102,7 @@ function submitOrderId(raw){
   if(r.quantity!==undefined)lines.push('枚数：'+r.quantity+'枚');
   if(r.paymentStatus)lines.push('支払状況：'+r.paymentStatus);
   if(r.entryStatus)lines.push('入場状況：'+r.entryStatus);
-  resultBox.textContent=lines.join('\\n');setStatus('受付結果を受信しました。');busy=false;
+  resultBox.textContent=lines.join('\n');setStatus('受付結果を受信しました。');busy=false;
   try{delete window.concertCheckinCallback}catch(_){}
  };
  const sep=GAS_URL.includes('?')?'&':'?';
