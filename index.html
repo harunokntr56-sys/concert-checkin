@@ -63,11 +63,33 @@ function clearPendingRequest(){
  if(requestScript){requestScript.onerror=null;requestScript.remove();requestScript=null}
  try{delete window.concertCheckinCallback}catch(_){window.concertCheckinCallback=undefined}
 }
+function extractOrderId(raw){
+ const value=String(raw||'').trim();
+ if(!value)return '';
+ // QRが受付番号そのものでも、URL/JSONの中に受付番号が入っていても対応する
+ const direct=value.match(/^[A-Za-z0-9_-]+$/);
+ if(direct && /^[A-Za-z]?\d{6,}[-_][A-Za-z0-9]+$/.test(value)) return value;
+ try{
+  const u=new URL(value);
+  for(const key of ['orderId','order_id','受付番号','id','ticket']){
+   const v=u.searchParams.get(key); if(v)return v.trim();
+  }
+ }catch(_){}
+ try{
+  const obj=JSON.parse(value);
+  for(const key of ['orderId','order_id','受付番号','id','ticket']){
+   if(obj && obj[key])return String(obj[key]).trim();
+  }
+ }catch(_){}
+ const match=value.match(/[A-Za-z]?\d{6,}[-_][A-Za-z0-9]+/);
+ return match ? match[0] : value;
+}
 function submitOrderId(raw){
- const id=String(raw||'').trim();
+ const original=String(raw||'').trim();
+ const id=extractOrderId(original);
  if(!id){busy=false;setStatus('QRコードから受付番号を読み取れませんでした。');return}
  clearPendingRequest();busy=true;resultBox.hidden=true;resultBox.className='result';
- setStatus('受付番号を読み取りました：'+id+'\\n受付結果を確認しています…');
+ setStatus('QRコードを読み取りました。受付番号：'+id+'\n受付結果を確認しています…');
  window.concertCheckinCallback=function(r){
   if(requestTimer){clearTimeout(requestTimer);requestTimer=null}
   if(requestScript){requestScript.onerror=null;requestScript.remove();requestScript=null}
